@@ -8,11 +8,11 @@ from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_sc
 from torch_geometric.data import Data
 from torch_geometric.loader import NeighborLoader
 
-from rgt_best_model_yuanshi import FusedRGT
+from FusedRGT_model import FusedRGT
 import random, numpy as np
 
 # ---------------------------
-# 设置随机种子
+# Set the random seed
 # ---------------------------
 def set_seed(seed=42):
     random.seed(seed)
@@ -24,7 +24,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 # ---------------------------
-# 数据加载与预处理
+# Data Loading and Preprocessing
 # ---------------------------
 def load_and_preprocess_data(data_dir):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -39,7 +39,7 @@ def load_and_preprocess_data(data_dir):
         'net': torch.load(os.path.join(data_dir, 'node_net.pt'), map_location=device).float(),
     }
 
-    # 数值型特征标准化
+    # Standardization of Numeric Features
     numeric_keys = ['bool', 'tweet_aug']
     for key in numeric_keys:
         feat = feats_dict[key]
@@ -54,7 +54,7 @@ def load_and_preprocess_data(data_dir):
     return feats_dict, edge_index, edge_type, labels
 
 # ---------------------------
-# 数据加载器
+# Data Loader
 # ---------------------------
 def create_data_loaders(feats_dict, edge_index, edge_type, labels, train_mask, val_mask, test_mask,
                         num_neighbors=[15, 10], batch_size=128):
@@ -81,7 +81,7 @@ def create_data_loaders(feats_dict, edge_index, edge_type, labels, train_mask, v
     return train_loader, val_loader, test_loader
 
 # ---------------------------
-# 训练函数
+# Training Function
 # ---------------------------
 def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_loader, labels,
                               lr=0.0001, weight_decay=1e-4, epochs=100, patience=20):
@@ -96,7 +96,7 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
 
     for epoch in range(epochs):
         # ---------------------------
-        # 训练阶段
+        # Training Phase
         # ---------------------------
         model.train()
         total_loss = 0
@@ -119,7 +119,7 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
         avg_train_loss = total_loss / len(train_loader)
 
         # ---------------------------
-        # 验证阶段
+        # Validation Phase
         # ---------------------------
         model.eval()
         val_preds, val_labels_list = [], []
@@ -148,7 +148,7 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
         if epoch % 10 == 0:
             print(f'Epoch {epoch:03d}, Loss: {avg_train_loss:.4f}, Train F1: {train_f1:.4f}, Val F1: {val_f1:.4f}')
 
-        # 早停
+        # Early Stop
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             patience_counter = 0
@@ -162,7 +162,7 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
     model.load_state_dict(torch.load('best_model.pt'))
 
     # ---------------------------
-    # 测试阶段
+    # Testing Phase
     # ---------------------------
     model.eval()
     test_preds, test_labels_list = [], []
@@ -191,7 +191,7 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
     return model, history
 
 # ---------------------------
-# 绘图
+# Drawing
 # ---------------------------
 def plot_training_history(history, save_path=None):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
@@ -207,7 +207,7 @@ def plot_training_history(history, save_path=None):
     plt.show()
 
 # ---------------------------
-# 主函数
+# Main Function
 # ---------------------------
 def main():
     set_seed(42)
@@ -227,9 +227,9 @@ def main():
     num_relations = len(torch.unique(edge_type))
 
     # ---------------------------
-    # 边丢弃率按类型设置
+    # Set the discard rate by type
     # ---------------------------
-    edge_dropout_rates = [0.7, 0.7, 0.0, 0.1, 0.3]  # 每种关系的丢弃率
+    edge_dropout_rates = [0.7, 0.7, 0.0, 0.1, 0.3]  # Discard Rate for Each Relationship
     model = FusedRGT(
         feat_dims,
         hidden_channels=128,
@@ -237,8 +237,8 @@ def main():
         num_relations=num_relations,
         num_layers=2,
         heads=8,
-        dropout=0.5,               # 网络层 dropout
-        edge_drop_probs=edge_dropout_rates  # 边丢弃率
+        dropout=0.5,               #  dropout
+        edge_drop_probs=edge_dropout_rates  
     ).to(device)
 
     train_loader, val_loader, test_loader = create_data_loaders(
