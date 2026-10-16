@@ -5,7 +5,7 @@ from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import softmax
 
 # ---------------------------
-# 特征融合模块
+# Feature Fusion Module
 # ---------------------------
 class MultiModalFeatureFusion(nn.Module):
     def __init__(self, feat_dims, common_dim=128):
@@ -54,7 +54,7 @@ class MultiModalFeatureFusion(nn.Module):
         return fused_emb
 
 # ---------------------------
-# 关系感知边丢弃
+# Relationship-Aware Edge Discarding
 # ---------------------------
 class RelationAwareEdgeDropout(nn.Module):
     def __init__(self, num_relations, drop_probs):
@@ -88,7 +88,7 @@ class RelationAwareEdgeDropout(nn.Module):
         return edge_index, edge_type
 
 # ---------------------------
-# RGT层
+# RGT Layer
 # ---------------------------
 class RGTLayer(MessagePassing):
     def __init__(self, in_channels, out_channels, num_relations, heads=8, dropout=0.5):
@@ -169,7 +169,7 @@ class RGTLayer(MessagePassing):
         return V_j * alpha.unsqueeze(-1)
 
 # ---------------------------
-# RGT模型
+# RGT Model
 # ---------------------------
 class RGT(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_relations,
@@ -215,7 +215,7 @@ class RGT(nn.Module):
         return self.classifier(emb)
 
 # ---------------------------
-# 融合特征的完整模型
+# A Comprehensive Model Incorporating Features
 # ---------------------------
 class FusedRGT(nn.Module):
     def __init__(self, feat_dims, hidden_channels, out_channels, num_relations,
