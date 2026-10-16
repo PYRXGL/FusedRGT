@@ -11,5 +11,7 @@ Key features:
 - Multi-scale node feature fusion for richer representation  
 - Compatible with standard Twitter datasets (e.g., TwiBot-20, TwiBot-22)  
 
-
+The FusedRGT model was implemented based on the PyTorch framework, utilizing the PyTorch Geometric, scikit-learn, and Transformers libraries. 
+Python version 3.12.9 and PyTorch version 2.6.0 were used. The datasets were partitioned into training, validation, and test sets with a 7:2:1 ratio. 
+To prevent overfitting and enhance training efficiency, an early stopping strategy was applied during all experiments.
 
