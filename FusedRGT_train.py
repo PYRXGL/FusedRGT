@@ -4,7 +4,10 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+from sklearn.metrics import (
+    f1_score, accuracy_score, precision_score, recall_score,
+    average_precision_score,
+)
 from torch_geometric.data import Data
 from torch_geometric.loader import NeighborLoader
 
@@ -122,7 +125,7 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
         # Validation Phase
         # ---------------------------
         model.eval()
-        val_preds, val_labels_list = [], []
+        val_preds, val_labels_list, val_probabilities_list = [], [], []
         val_loss = 0
         with torch.no_grad():
             for batch in val_loader:
@@ -132,10 +135,20 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
                 val_loss += loss.item()
                 val_preds.append(out[batch.val_mask].argmax(dim=1).cpu())
                 val_labels_list.append(batch.y[batch.val_mask].cpu())
+                val_probabilities_list.append(
+                    torch.softmax(out[batch.val_mask], dim=1)[:, 1].cpu()
+                )
 
         val_pred = torch.cat(val_preds, dim=0)
         val_label = torch.cat(val_labels_list, dim=0)
+        val_probability = torch.cat(val_probabilities_list, dim=0)
         val_f1 = f1_score(val_label.numpy(), val_pred.numpy(), average='weighted')
+        val_bot_recall = recall_score(
+            val_label.numpy(), val_pred.numpy(), pos_label=1, zero_division=0
+        )
+        val_pr_auc = average_precision_score(
+            val_label.numpy(), val_probability.numpy()
+        )
         avg_val_loss = val_loss / len(val_loader)
 
         scheduler.step(val_f1)
@@ -146,7 +159,11 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
         history['val_f1'].append(val_f1)
 
         if epoch % 10 == 0:
-            print(f'Epoch {epoch:03d}, Loss: {avg_train_loss:.4f}, Train F1: {train_f1:.4f}, Val F1: {val_f1:.4f}')
+            print(
+                f'Epoch {epoch:03d}, Loss: {avg_train_loss:.4f}, '
+                f'Train F1: {train_f1:.4f}, Val F1: {val_f1:.4f}, '
+                f'Val Bot Recall: {val_bot_recall:.4f}, Val PR-AUC: {val_pr_auc:.4f}'
+            )
 
         # Early Stop
         if val_f1 > best_val_f1:
@@ -165,27 +182,40 @@ def train_model_with_sampling(model, feats_dict, train_loader, val_loader, test_
     # Testing Phase
     # ---------------------------
     model.eval()
-    test_preds, test_labels_list = [], []
+    test_preds, test_labels_list, test_probabilities_list = [], [], []
     with torch.no_grad():
         for batch in test_loader:
             batch_feats = {k: feats_dict[k][batch.n_id].to(device) for k in feats_dict}
             out = model(batch_feats, batch.edge_index, batch.edge_type)
             test_preds.append(out[batch.test_mask].argmax(dim=1).cpu())
             test_labels_list.append(batch.y[batch.test_mask].cpu())
+            test_probabilities_list.append(
+                torch.softmax(out[batch.test_mask], dim=1)[:, 1].cpu()
+            )
 
     test_pred = torch.cat(test_preds, dim=0)
     test_label = torch.cat(test_labels_list, dim=0)
+    test_probability = torch.cat(test_probabilities_list, dim=0)
 
     test_acc = accuracy_score(test_label.numpy(), test_pred.numpy())
     test_f1 = f1_score(test_label.numpy(), test_pred.numpy(), average='weighted')
     test_precision = precision_score(test_label.numpy(), test_pred.numpy(), average='weighted', zero_division=0)
     test_recall = recall_score(test_label.numpy(), test_pred.numpy(), average='weighted')
+    test_bot_f1 = f1_score(test_label.numpy(), test_pred.numpy(), pos_label=1, zero_division=0)
+    test_bot_precision = precision_score(test_label.numpy(), test_pred.numpy(), pos_label=1, zero_division=0)
+    test_bot_recall = recall_score(test_label.numpy(), test_pred.numpy(), pos_label=1, zero_division=0)
+    test_pr_auc = average_precision_score(test_label.numpy(), test_probability.numpy())
 
     print("========== Test Results ==========")
     print(f"Accuracy : {test_acc:.4f}")
     print(f"F1 Score : {test_f1:.4f}")
     print(f"Precision: {test_precision:.4f}")
     print(f"Recall   : {test_recall:.4f}")
+    print("----- Bot-class / ranking metrics -----")
+    print(f"Bot F1       : {test_bot_f1:.4f}")
+    print(f"Bot Precision: {test_bot_precision:.4f}")
+    print(f"Bot Recall   : {test_bot_recall:.4f}")
+    print(f"PR-AUC       : {test_pr_auc:.4f}")
     print("==================================")
 
     return model, history
