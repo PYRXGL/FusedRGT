@@ -237,6 +237,9 @@ class FusedRGT(nn.Module):
         fused_x = self.feature_fusion(feats)
         return self.rgt(fused_x, edge_index, edge_type)
 
+    def predict_proba(self, feats, edge_index, edge_type):        
+        return torch.softmax(self.forward(feats, edge_index, edge_type), dim=-1)
+
     def forward_embed(self, feats, edge_index, edge_type):
         fused_x = self.feature_fusion(feats)
         return self.rgt.forward_embed(fused_x, edge_index, edge_type)
